@@ -1,0 +1,80 @@
+service: todo-serverless
+
+plugins:
+  - serverless-dynamodb-local
+  - serverless-webpack
+  - serverless-iam-roles-per-function
+  - serverless-offline
+
+custom:
+  webpack:
+    webpackConfig: ./webpack.config.js
+    includeModules: true
+  dynamodb:
+    stages:
+      - dev
+      - local
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  region: sa-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:*
+          Resource: "*"
+
+functions:
+  createTodo:
+    handler: src/functions/createTodo.handle
+    events:
+      - http:
+          path: /todos/{userid}
+          method: POST
+          cors: true
+    iam:
+      role:
+        statements:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource: 
+              - "arn:aws:dynamodb:${self.provider.region}:*:table/todos"
+  getTodo:
+    handler: src/functions/getTodo.handle
+    events:
+      - http:
+          path: /todos/{userid}
+          method: GET
+          cors: true
+    iam:
+      role:
+        statements:
+          - Effect: Allow
+            Action:
+              - dynamodb:Query
+            Resource: 
+              - "arn:aws:dynamodb:${self.provider.region}:*:table/todos"
+
+resources:
+  Resources:
+    dbTodo:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: todos
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
